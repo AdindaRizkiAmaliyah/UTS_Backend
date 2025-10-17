@@ -38,7 +38,8 @@ func GetAllJobs(db *sql.DB) ([]model.Pekerjaan, error) {
 	return list, nil
 }
 
-// GetJobByID returns single pekerjaan by id
+// GetJobByID mengembalikan data pekerjaan berdasarkan ID
+// Jika tidak ditemukan, mengembalikan nil
 func GetJobByID(db *sql.DB, id int) (*model.Pekerjaan, error) {
 	row := db.QueryRow(`
 		SELECT id, alumni_id, nama_perusahaan, posisi_jabatan, bidang_industri, lokasi_kerja, gaji_range,
@@ -93,7 +94,8 @@ func GetJobsByAlumniID(db *sql.DB, alumniID int) ([]model.Pekerjaan, error) {
 	return list, nil
 }
 
-// GetAllJobsWithFilter - filter dinamis
+// GetAllJobsWithFilter mengembalikan pekerjaan dengan filter dinamis (nama_perusahaan, posisi, bidang, status)
+// Memudahkan pencarian spesifik
 func GetAllJobsWithFilter(db *sql.DB, filters map[string]string) ([]model.Pekerjaan, error) {
 	query := `
 		SELECT id, alumni_id, nama_perusahaan, posisi_jabatan, bidang_industri, lokasi_kerja, gaji_range,
@@ -150,7 +152,7 @@ func GetAllJobsWithFilter(db *sql.DB, filters map[string]string) ([]model.Pekerj
 	return list, nil
 }
 
-// CreateJob - insert baru
+// CreateJob - insert baru pekerjaan
 func CreateJob(db *sql.DB, pekerjaan *model.Pekerjaan) (*model.Pekerjaan, error) {
 	query := `
 		INSERT INTO pekerjaan
@@ -172,7 +174,8 @@ func CreateJob(db *sql.DB, pekerjaan *model.Pekerjaan) (*model.Pekerjaan, error)
 	return pekerjaan, nil
 }
 
-// UpdateJob - update data pekerjaan
+// UpdateJob memperbarui data pekerjaan
+// Mengembalikan data terbaru setelah update
 func UpdateJob(db *sql.DB, id int, pekerjaan *model.Pekerjaan) (*model.Pekerjaan, error) {
 	query := `
 		UPDATE pekerjaan
@@ -225,13 +228,14 @@ func UpdateJob(db *sql.DB, id int, pekerjaan *model.Pekerjaan) (*model.Pekerjaan
 }
 
 
-// Soft delete satu pekerjaan oleh alumni
+// Soft delete satu pekerjaan oleh alumni (menandai timestamp dan siapa yang hapus)
 func SoftDeletePekerjaanByAlumni(db *sql.DB, jobID, alumniID int) error {
 	query := `
 		UPDATE pekerjaan
-		SET is_deleted = NOW(),
-		    deleted_by = $2,
-		    updated_at = NOW()
+		SET 
+			is_deleted = CURRENT_TIMESTAMP,
+			deleted_by = 'alumni',
+			updated_at = CURRENT_TIMESTAMP
 		WHERE id = $1 AND alumni_id = $2 AND is_deleted IS NULL
 	`
 	res, err := db.Exec(query, jobID, alumniID)
@@ -248,22 +252,23 @@ func SoftDeletePekerjaanByAlumni(db *sql.DB, jobID, alumniID int) error {
 }
 
 // Soft delete semua pekerjaan milik alumni (oleh admin)
-func SoftDeleteAllPekerjaanByAdmin(db *sql.DB, alumniID, adminID int) (int64, error) {
+func SoftDeleteAllPekerjaanByAdmin(db *sql.DB, alumniID int) (int64, error) {
 	query := `
 		UPDATE pekerjaan
-		SET is_deleted = NOW(),
-		    deleted_by = $2,
-		    updated_at = NOW()
+		SET 
+			is_deleted = CURRENT_TIMESTAMP,
+			deleted_by = 'admin',
+			updated_at = CURRENT_TIMESTAMP
 		WHERE alumni_id = $1 AND is_deleted IS NULL
 	`
-	res, err := db.Exec(query, alumniID, adminID)
+	res, err := db.Exec(query, alumniID)
 	if err != nil {
 		return 0, err
 	}
 	return res.RowsAffected()
 }
 
-// Ambil semua data yang disoftdelete (khusus admin)
+// GetTrashedJobs mengembalikan semua pekerjaan yang sudah dihapus (soft delete) untuk admin
 func GetTrashedJobs(db *sql.DB) ([]model.Pekerjaan, error) {
 	rows, err := db.Query(`
 		SELECT id, alumni_id, nama_perusahaan, posisi_jabatan, bidang_industri, lokasi_kerja, gaji_range,
@@ -295,7 +300,7 @@ func GetTrashedJobs(db *sql.DB) ([]model.Pekerjaan, error) {
 	return jobs, nil
 }
 
-// Ambil pekerjaan yang dihapus milik alumni tertentu
+// GetTrashedJobsByAlumni mengembalikan pekerjaan yang dihapus milik alumni tertentu
 func GetTrashedJobsByAlumni(db *sql.DB, alumniID int) ([]model.Pekerjaan, error) {
 	rows, err := db.Query(`
 		SELECT id, alumni_id, nama_perusahaan, posisi_jabatan, bidang_industri, lokasi_kerja, gaji_range,
@@ -327,25 +332,38 @@ func GetTrashedJobsByAlumni(db *sql.DB, alumniID int) ([]model.Pekerjaan, error)
 	return jobs, nil
 }
 
-// Restore pekerjaan (admin)
-func RestoreJobs(db *sql.DB, jobID int) error {
-	_, err := db.Exec(`
+// RestoreJob mengembalikan pekerjaan yang dihapus (soft delete) menjadi aktif
+func RestoreJob(db *sql.DB, jobID int) error {
+	query := `
 		UPDATE pekerjaan
-		SET is_deleted = NULL,
-		    deleted_by = NULL,
-		    updated_at = NOW()
-		WHERE id = $1
-	`, jobID)
-	return err
+		SET 
+			is_deleted = NULL,
+			deleted_by = NULL,
+			updated_at = CURRENT_TIMESTAMP
+		WHERE id = $1 AND is_deleted IS NOT NULL
+	`
+	res, err := db.Exec(query, jobID)
+	if err != nil {
+		return err
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("data tidak ditemukan atau sudah aktif")
+	}
+	return nil
 }
 
-// Restore pekerjaan milik alumni sendiri
-func RestoreJobsByAlumni(db *sql.DB, jobID, alumniID int) error {
-	res, err := db.Exec(`
+// RestoreJobByAlumni mengembalikan pekerjaan yang dihapus milik alumni sendiri
+func RestoreJobByAlumni(db *sql.DB, jobID, alumniID int) error {
+	query := `
 		UPDATE pekerjaan
-		SET is_deleted = NULL, deleted_by = NULL, updated_at = NOW()
+		SET 
+			is_deleted = NULL,
+			deleted_by = NULL,
+			updated_at = CURRENT_TIMESTAMP
 		WHERE id = $1 AND alumni_id = $2 AND is_deleted IS NOT NULL
-	`, jobID, alumniID)
+	`
+	res, err := db.Exec(query, jobID, alumniID)
 	if err != nil {
 		return err
 	}
@@ -356,13 +374,20 @@ func RestoreJobsByAlumni(db *sql.DB, jobID, alumniID int) error {
 	return nil
 }
 
-// Hard delete (admin)
+// Hard delete pekerjaan (oleh admin)
 func HardDeleteJob(db *sql.DB, jobID int) error {
-	_, err := db.Exec(`DELETE FROM pekerjaan WHERE id = $1`, jobID)
-	return err
+	res, err := db.Exec(`DELETE FROM pekerjaan WHERE id = $1`, jobID)
+	if err != nil {
+		return err
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("data tidak ditemukan")
+	}
+	return nil
 }
 
-// Hard delete milik alumni sendiri
+// Hard delete pekerjaan milik alumni sendiri
 func HardDeleteJobByAlumni(db *sql.DB, jobID, alumniID int) error {
 	res, err := db.Exec(`DELETE FROM pekerjaan WHERE id = $1 AND alumni_id = $2`, jobID, alumniID)
 	if err != nil {

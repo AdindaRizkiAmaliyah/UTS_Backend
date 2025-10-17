@@ -6,6 +6,8 @@ import (
     "fmt"
 )
 
+// CheckAlumniByNim mencari data alumni berdasarkan NIM
+// Mengembalikan pointer ke model.Alumni jika ditemukan, atau error jika gagal
 func CheckAlumniByNim(db *sql.DB, nim string) (*model.Alumni, error) {
 	alumni := new(model.Alumni)
 	query := `SELECT id, nim, nama, jurusan, angkatan, tahun_lulus, email, no_telepon, alamat, created_at, updated_at
@@ -19,6 +21,8 @@ func CheckAlumniByNim(db *sql.DB, nim string) (*model.Alumni, error) {
 	return alumni, nil
 }
 
+// GetAllAlumni mengambil semua data alumni
+// Mengembalikan slice alumniList dan error jika terjadi kesalahan
 func GetAllAlumni(db *sql.DB) ([]model.Alumni, error) {
     rows, err := db.Query(`SELECT id, nim, nama, jurusan, angkatan, tahun_lulus, email, no_telepon, alamat, created_at, updated_at 
     FROM alumni`)
@@ -40,6 +44,8 @@ func GetAllAlumni(db *sql.DB) ([]model.Alumni, error) {
     return alumniList, nil
 }
 
+// GetAlumniByID mencari data alumni berdasarkan ID
+// Mengembalikan pointer ke model.Alumni jika ditemukan, nil jika tidak ada, atau error jika gagal
 func GetAlumniByID(db *sql.DB, id int) (*model.Alumni, error) {
     row := db.QueryRow(`SELECT id, nim, nama, jurusan, angkatan, tahun_lulus, 
         email, no_telepon, alamat, created_at, updated_at 
@@ -61,6 +67,8 @@ func GetAlumniByID(db *sql.DB, id int) (*model.Alumni, error) {
     return &alumni, nil
 }
 
+// CreateAlumni menambahkan data alumni baru ke database
+// Mengembalikan pointer ke alumni yang baru dibuat, termasuk ID baru
 func CreateAlumni(db *sql.DB, alumni *model.Alumni) (*model.Alumni, error) {
     query := `
         INSERT INTO alumni 
@@ -87,6 +95,8 @@ func CreateAlumni(db *sql.DB, alumni *model.Alumni) (*model.Alumni, error) {
     return alumni, nil
 }
 
+// UpdateAlumni memperbarui data alumni berdasarkan ID
+// Mengembalikan pointer ke data alumni yang sudah diperbarui
 func UpdateAlumni(db *sql.DB, id string, alumni *model.Alumni) (*model.Alumni, error) {
     query := `
         UPDATE alumni
@@ -130,6 +140,8 @@ func UpdateAlumni(db *sql.DB, id string, alumni *model.Alumni) (*model.Alumni, e
     return &updated, nil
 }
 
+// DeleteAlumni menghapus data alumni berdasarkan ID
+// Mengembalikan error jika gagal atau jika data tidak ditemukan
 func DeleteAlumni(db *sql.DB, id string) error {
     query := `DELETE FROM alumni WHERE id = $1`
     result, err := db.Exec(query, id)
@@ -149,6 +161,9 @@ func DeleteAlumni(db *sql.DB, id string) error {
     return nil
 }
 
+// GetAlumniPaginated mengambil data alumni dengan filter, urutkan, dan paginasi
+// search = kata kunci pencarian, sortBy = kolom untuk diurutkan, order = ASC/DESC
+// limit = jumlah data per halaman, offset = mulai dari data ke berapa
 func GetAlumniPaginated(db *sql.DB, search, sortBy, order string, limit, offset int) ([]model.Alumni, error) {
     query := fmt.Sprintf(`
         SELECT id, nim, nama, jurusan, angkatan, tahun_lulus, email, no_telepon, alamat, created_at, updated_at
@@ -179,6 +194,8 @@ func GetAlumniPaginated(db *sql.DB, search, sortBy, order string, limit, offset 
     return alumniList, nil
 }
 
+// CountAlumni menghitung jumlah alumni sesuai kata kunci pencarian
+// Berguna untuk pagination
 func CountAlumni(db *sql.DB, search string) (int, error) {
     var total int
     query := `SELECT COUNT(*) FROM alumni 
