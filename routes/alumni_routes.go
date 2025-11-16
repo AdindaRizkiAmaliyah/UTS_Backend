@@ -1,22 +1,29 @@
 package routes
 
 import (
-    "database/sql"
-    "clean-archi/app/service"
-    "github.com/gofiber/fiber/v2"
+	"clean-archi/app/service"
+	repo "clean-archi/app/repository/MongoRepo"
+
+	"github.com/gofiber/fiber/v2"
+	"go.mongodb.org/mongo-driver/mongo"
+	"os"
 )
 
-func AlumniRoutes(router fiber.Router, db *sql.DB) {
-    // Inisialisasi service langsung tanpa handler
-    alumniService := service.NewAlumniService(db)
+// AlumniRoutes — rute CRUD untuk data alumni (MongoDB)
+func AlumniRoutes(router fiber.Router, mongoClient *mongo.Client) {
+	mongoDatabase := mongoClient.Database(os.Getenv("MONGODB_DATABASE"))
 
-    alumni := router.Group("/unair/alumni")
-    alumni.Get("/", alumniService.GetAll, )
-    alumni.Get("/:id", alumniService.GetByID)
-    alumni.Post("/", alumniService.Create)
-    alumni.Put("/:id", alumniService.Update)
-    alumni.Delete("/:id", alumniService.Delete)
-    
-    // Tambahkan route untuk check alumni jika diperlukan
-    alumni.Post("/check/:key", alumniService.CheckAlumni)
+	// Repository & Service
+	mongoRepo := repo.NewAlumniMongoRepository(mongoDatabase, "alumni")
+	alumniService := service.NewAlumniService(mongoRepo)
+
+	// Base group
+	alumni := router.Group("/api/v1/alumni")
+
+	// Endpoints
+	alumni.Get("/", alumniService.GetAll)
+	alumni.Get("/:id", alumniService.GetByID)
+	alumni.Post("/", alumniService.Create)
+	alumni.Put("/:id", alumniService.Update)
+	alumni.Delete("/:id", alumniService.Delete)
 }

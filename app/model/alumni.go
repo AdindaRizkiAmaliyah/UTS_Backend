@@ -1,40 +1,45 @@
 package model
 
 import (
-	"time"
-	"github.com/golang-jwt/jwt/v5"
+    "time"
+    "github.com/golang-jwt/jwt/v5"
+    "go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+// Alumni untuk PostgreSQL & MongoDB
 type Alumni struct {
-	ID         int       `json:"id"`
-	NIM        string    `json:"nim"`
-	Nama       string    `json:"nama"`
-	Jurusan    string    `json:"jurusan"`
-	Angkatan   int       `json:"angkatan"`
-	TahunLulus int       `json:"tahun_lulus"`
-	Email      string    `json:"email"`
-	Password   string    `json:"password"`
-	NoTelp     *string   `json:"no_telepon"`
-	Alamat     *string   `json:"alamat"`
-	Role       string    `json:"role"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
+    MongoID     primitive.ObjectID `json:"id" bson:"_id,omitempty" db:"mongo_id"`
+    ID          int                `json:"id" db:"id"`
+    NIM         string             `json:"nim" bson:"nim" db:"nim"`
+    Nama        string             `json:"nama" bson:"nama" db:"nama"`
+    Jurusan     string             `json:"jurusan" bson:"jurusan" db:"jurusan"`
+    Angkatan    string             `json:"angkatan" bson:"angkatan" db:"angkatan"`
+    TahunLulus string              `json:"tahun_lulus" bson:"tahun_lulus" db:"tahun_lulus"`
+    Email       string             `json:"email" bson:"email" db:"email"`
+    Password    string             `json:"password" bson:"password" db:"password"`
+    NoTelp      *string            `json:"no_telp,omitempty" bson:"no_telp,omitempty" db:"no_telp"`
+    Alamat      *string            `json:"alamat,omitempty" bson:"alamat,omitempty" db:"alamat"`
+    Role        string             `json:"role" bson:"role" db:"role"`
+    CreatedAt   time.Time          `json:"created_at" bson:"created_at" db:"created_at"`
+    UpdatedAt   time.Time          `json:"updated_at" bson:"updated_at" db:"updated_at"`
 }
 
+// Struct untuk login request
 type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+    Email    string `json:"email" bson:"email"`
+    Password string `json:"password" bson:"password"`
 }
 
+// Struct untuk response login
 type LoginResponse struct {
-	Alumni Alumni `json:"alumni"`
-	Token  string `json:"token"`
+    Alumni Alumni `json:"alumni"`
+    Token  string `json:"token"`
 }
 
+// JWT Claims
 type JWTClaims struct {
-	UserID int    `json:"user_id"`
-	Email  string `json:"email"`
-	Role   string `json:"role"`
-	jwt.RegisteredClaims
-
+    UserID string `json:"user_id"`
+    Email  string `json:"email"`
+    Role   string `json:"role"`
+    jwt.RegisteredClaims
 }

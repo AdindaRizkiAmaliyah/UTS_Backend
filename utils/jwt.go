@@ -2,33 +2,42 @@ package utils
 
 import (
 	"clean-archi/app/model"
+	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var jwtSecret = []byte("your-secret-key-min-32-characters-long")
-
-// Membuat token JWT berdasarkan data Alumni
+// GenerateToken membuat JWT berdasarkan data alumni
 func GenerateToken(alumni model.Alumni) (string, error) {
 	claims := model.JWTClaims{
-		UserID: alumni.ID,
+		UserID: alumni.MongoID.Hex(), // gunakan ObjectID Hex dari MongoDB
 		Email:  alumni.Email,
 		Role:   alumni.Role,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)), // kadaluarsa 1 hari
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Issuer:    "unair-auth-service",
 		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(jwtSecret)
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		secret = "default-secret-key-change-this" // fallback default
+	}
+	return token.SignedString([]byte(secret))
 }
 
-// Validasi token dan kembalikan klaim
+// ValidateToken memvalidasi token JWT dan mengembalikan klaim
 func ValidateToken(tokenString string) (*model.JWTClaims, error) {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		secret = "default-secret-key-change-this"
+	}
+
 	token, err := jwt.ParseWithClaims(tokenString, &model.JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return jwtSecret, nil
+		return []byte(secret), nil
 	})
 
 	if err != nil {
